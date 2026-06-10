@@ -81,16 +81,19 @@ void main() {
 
   // foam — ① 파봉(crest) ② 해안으로 밀려오는 브레이커 라인 ③ 물가 거품띠
   float foamTex = fbm(vWorldPos.xz * 0.9 - vec2(0.0, uTime * 0.6));
-  float crest = smoothstep(0.55, 1.05, vWaveHeight) * (0.2 + 0.8 * shore);
+  // 먼바다에서는 아주 가끔, 물가에서는 자주 부서지도록
+  float crest = smoothstep(0.72, 1.2, vWaveHeight) * (0.06 + 0.35 * shore);
+  // 브레이커 거품: 해안 앞 구간에서, 밀려오는 파의 능선을 따라 좁은 띠로
+  float shoreBand = smoothstep(uShoreZ - 55.0, uShoreZ - 5.0, vWorldPos.z);
   float bphase = sin(vWorldPos.z * 0.16 - uTime * 1.25) * 0.5 + 0.5;
-  float band = smoothstep(0.62, 0.92, bphase) * shore;
+  float band = smoothstep(0.74, 0.97, bphase) * shoreBand;
   float edge = smoothstep(uShoreZ - 5.0, uShoreZ + 3.0, vWorldPos.z + vWaveHeight * 2.0);
   float foam = clamp(crest + band * 0.85 + edge, 0.0, 1.0);
-  foam *= smoothstep(0.25, 0.75, foamTex + foam * 0.35); // 노이즈로 거품 가장자리 분해
+  foam *= smoothstep(0.34, 0.88, foamTex + foam * 0.3); // 노이즈로 거품을 패치 형태로 분해
 
   vec3 foamColor = mix(vec3(0.93, 0.96, 0.99), uHorizonColor, 0.25);
   foamColor *= 1.0 - 0.72 * uNightFactor; // 밤에는 거품도 어둡게
-  color = mix(color, foamColor, foam * 0.92);
+  color = mix(color, foamColor, foam * 0.85);
   color += (spec + sparkle * (1.0 - smoothstep(300.0, 600.0, distToCam))) * (1.0 - foam);
 
   // 거리 안개 — 수평선이 하늘로 부드럽게 녹아들도록

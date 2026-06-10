@@ -16,6 +16,7 @@ import {
 } from './time/timeOfDay'
 import { createPanel } from './ui/panel'
 import { OceanAudio } from './audio/oceanAudio'
+import { createComposer } from './post/composer'
 
 // 모바일(터치 기기) 감지 — 셰이더 격자/픽셀비율 품질을 낮춘다
 const isMobile = window.matchMedia('(pointer: coarse)').matches
@@ -39,6 +40,9 @@ const stars = new Stars(isMobile)
 stars.addTo(scene)
 
 const lighting = createLighting(scene)
+
+// 포스트프로세싱: bloom(데스크톱) + 비네트 + ACES 톤매핑
+const composer = createComposer(renderer, scene, camera, isMobile)
 
 // ---- 상태 ----
 const state = {
@@ -138,11 +142,14 @@ window.addEventListener(
 )
 
 // ---- 렌더 루프 ----
-const clock = new THREE.Clock()
+let prevMs = performance.now()
+let elapsed = 0
 
 renderer.setAnimationLoop(() => {
-  const dt = Math.min(clock.getDelta(), 0.1) // 탭 복귀 시 점프 방지
-  const elapsed = clock.elapsedTime
+  const nowMs = performance.now()
+  const dt = Math.min((nowMs - prevMs) / 1000, 0.1) // 탭 복귀 시 점프 방지
+  prevMs = nowMs
+  elapsed += dt
 
   // 자동 시간 흐름 — 슬라이더도 함께 따라간다
   if (state.autoTime) {
@@ -155,7 +162,7 @@ renderer.setAnimationLoop(() => {
   ocean.update(elapsed)
   stars.update(elapsed, palette.nightFactor)
 
-  renderer.render(scene, camera)
+  composer.render()
 })
 
 // ---- 리사이즈 ----
@@ -163,4 +170,5 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth, window.innerHeight)
+  composer.setSize(window.innerWidth, window.innerHeight)
 })

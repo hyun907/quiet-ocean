@@ -32,9 +32,9 @@ void main() {
 
   // 달 — 차가운 디스크 + 은은한 글로우 (밤에만 보임)
   float m = max(dot(dir, uMoonDir), 0.0);
-  float mdisc = smoothstep(0.99955, 0.99985, m);
-  float mglow = pow(m, 160.0) * 0.4;
-  color += vec3(0.82, 0.87, 1.0) * (mdisc * 1.5 + mglow) * uNightFactor;
+  float mdisc = smoothstep(0.99965, 0.99985, m);
+  float mglow = pow(m, 600.0) * 0.3 + pow(m, 60.0) * 0.04;
+  color += vec3(0.82, 0.87, 1.0) * (mdisc * 0.9 + mglow) * uNightFactor;
 
   // 그라데이션 밴딩 방지용 미세 디더링
   color += (hash(dir.xy * vec2(1741.3, 911.7)) - 0.5) * 0.006;
