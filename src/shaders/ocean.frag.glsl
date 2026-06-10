@@ -58,10 +58,16 @@ void main() {
   vec2 uv2 = vWorldPos.xz * 0.16 + vec2(-uTime * 0.020, uTime * 0.014);
   vec3 n1 = texture2D(uNormalMap, uv1).xyz * 2.0 - 1.0;
   vec3 n2 = texture2D(uNormalMap, uv2).xyz * 2.0 - 1.0;
-  vec2 detail = n1.xy + n2.xy * 0.75;
-  // 수평선 근처는 디테일을 줄여 차분하게
-  float detailStrength = 0.5 * (1.0 - 0.7 * smoothstep(60.0, 520.0, distToCam));
+  // 먼 수면의 고주파 잔물결은 밤에 깨진 픽셀처럼 보여서 먼저 감쇠한다.
+  float lowFreqDetail = 1.0 - 0.95 * smoothstep(95.0, 440.0, distToCam);
+  float highFreqDetail = 1.0 - smoothstep(45.0, 210.0, distToCam);
+  float nightCalm = 1.0 - 0.62 * uNightFactor;
+  vec2 detail = n1.xy * lowFreqDetail + n2.xy * 0.65 * highFreqDetail;
+  float detailStrength = 0.38 * nightCalm;
   vec3 normal = normalize(vNormal + vec3(detail.x, 0.0, detail.y) * detailStrength);
+  float horizonCalm = uNightFactor * smoothstep(150.0, 540.0, distToCam);
+  vec3 calmNormal = normalize(mix(vNormal, vec3(0.0, 1.0, 0.0), 0.55 * horizonCalm));
+  normal = normalize(mix(normal, calmNormal, 0.72 * horizonCalm));
 
   // 해안 근접도 (0 먼바다 → 1 물가)
   float shore = smoothstep(uShoreZ - 80.0, uShoreZ, vWorldPos.z);
@@ -82,11 +88,13 @@ void main() {
   float rdots = max(dot(reflDir, uSunDir), 0.0);
   float specNarrow = pow(rdots, 260.0) * 2.6;
   float specWide   = pow(rdots, 24.0) * 0.08;
-  vec3 spec = uSunColor * (specNarrow + specWide) * uSunIntensity;
+  float nightFarCalm = mix(1.0, 1.0 - 0.82 * smoothstep(110.0, 500.0, distToCam), uNightFactor);
+  vec3 spec = uSunColor * (specNarrow + specWide) * uSunIntensity * nightFarCalm;
 
   // 은은한 반짝임 — 시간에 따라 점멸하는 미세 글린트
   float tw = noise(vWorldPos.xz * 6.0 + vec2(uTime * 2.0, -uTime * 1.3));
-  float sparkle = smoothstep(0.93, 1.0, tw) * pow(rdots, 6.0) * 1.4 * uSunIntensity;
+  float sparkleFade = (1.0 - smoothstep(120.0, 340.0, distToCam)) * (1.0 - 0.75 * uNightFactor);
+  float sparkle = smoothstep(0.93, 1.0, tw) * pow(rdots, 6.0) * 1.4 * uSunIntensity * sparkleFade;
 
   // foam — ① 파봉(crest) ② 해안으로 밀려오는 브레이커 라인 ③ 물가 거품띠
   float foamTex = fbm(vWorldPos.xz * 0.9 - vec2(0.0, uTime * 0.6));
@@ -103,7 +111,7 @@ void main() {
   vec3 foamColor = mix(vec3(0.93, 0.96, 0.99), uHorizonColor, 0.25);
   foamColor *= 1.0 - 0.72 * uNightFactor; // 밤에는 거품도 어둡게
   color = mix(color, foamColor, foam * 0.85);
-  color += (spec + sparkle * (1.0 - smoothstep(300.0, 600.0, distToCam))) * (1.0 - foam);
+  color += (spec + sparkle) * (1.0 - foam);
 
   // 거리 안개 — 수평선이 하늘로 부드럽게 녹아들도록
   float fog = smoothstep(uFogNear, uFogFar, distToCam);

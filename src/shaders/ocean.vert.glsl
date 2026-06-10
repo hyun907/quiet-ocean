@@ -6,6 +6,7 @@
 uniform float uTime;
 uniform float uWaveIntensity; // 파도 세기 0 ~ 2 (UI 슬라이더)
 uniform float uShoreZ;        // 해안선의 월드 z 좌표
+uniform float uNightFactor;   // 0 낮 ~ 1 밤
 
 varying vec3 vWorldPos;
 varying vec3 vNormal;
@@ -40,14 +41,19 @@ void main() {
   vec3 disp = vec3(0.0);
   vec3 nGrad = vec3(0.0);
   float amp = uWaveIntensity;
+  float distToCam = distance(cameraPosition, worldPos);
+  float far = smoothstep(150.0, 500.0, distToCam);
+  // 짧은 파장은 밤 수평선에서 깨진 줄무늬처럼 보이므로 먼 거리에서만 차분하게 줄인다.
+  float midWaveFade = 1.0 - (0.16 + 0.34 * uNightFactor) * far;
+  float shortWaveFade = 1.0 - (0.70 + 0.24 * uNightFactor) * far;
 
   // 잔잔한 너울 — 방향/파장/속도/뾰족함이 서로 다른 Gerstner 파 6개
   gerstnerWave(p, normalize(vec2( 0.0,  1.0 )), 0.40 * amp, 46.0, 0.85, 0.35, t, disp, nGrad);
   gerstnerWave(p, normalize(vec2( 0.35, 0.9 )), 0.26 * amp, 27.0, 1.10, 0.40, t, disp, nGrad);
-  gerstnerWave(p, normalize(vec2(-0.5,  0.8 )), 0.16 * amp, 18.0, 1.35, 0.45, t, disp, nGrad);
-  gerstnerWave(p, normalize(vec2( 0.9,  0.25)), 0.08 * amp, 12.0, 1.60, 0.50, t, disp, nGrad);
-  gerstnerWave(p, normalize(vec2(-0.7,  0.6 )), 0.05 * amp,  8.0, 1.90, 0.50, t, disp, nGrad);
-  gerstnerWave(p, normalize(vec2( 0.2, -0.97)), 0.04 * amp,  7.0, 2.20, 0.40, t, disp, nGrad);
+  gerstnerWave(p, normalize(vec2(-0.5,  0.8 )), 0.16 * amp * midWaveFade, 18.0, 1.35, 0.45, t, disp, nGrad);
+  gerstnerWave(p, normalize(vec2( 0.9,  0.25)), 0.08 * amp * shortWaveFade, 12.0, 1.60, 0.50, t, disp, nGrad);
+  gerstnerWave(p, normalize(vec2(-0.7,  0.6 )), 0.05 * amp * shortWaveFade,  8.0, 1.90, 0.50, t, disp, nGrad);
+  gerstnerWave(p, normalize(vec2( 0.2, -0.97)), 0.04 * amp * shortWaveFade,  7.0, 2.20, 0.40, t, disp, nGrad);
 
   // 해안으로 밀려오며 부풀어 오르는 너울 (철썩이는 브레이커)
   float bph = worldPos.z * 0.16 - t * 1.25;
