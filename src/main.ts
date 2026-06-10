@@ -34,13 +34,29 @@ scene.fog = fog
 const sky = new Sky()
 sky.addTo(scene)
 
-const ocean = new Ocean(isMobile)
+const ocean = new Ocean(isMobile, renderer.capabilities.getMaxAnisotropy())
 ocean.addTo(scene)
 
 const stars = new Stars(isMobile)
 stars.addTo(scene)
 
 const lighting = createLighting(scene)
+
+// 하늘 환경 큐브맵 — 실제 하늘(태양 글로우/그라데이션/달)을 수면 반사에 쓴다.
+// HalfFloat로 만들어 태양의 HDR 밝기가 반사에서 클램핑되지 않게 한다.
+const envRT = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType })
+const envCamera = new THREE.CubeCamera(1, 1500, envRT)
+envCamera.position.copy(camera.position)
+ocean.uniforms.uEnvMap.value = envRT.texture
+
+/** 하늘만 큐브맵에 다시 굽는다 — 시간대가 바뀔 때마다 호출 */
+function updateEnvMap(): void {
+  ocean.mesh.visible = false
+  ocean.sand.visible = false
+  envCamera.update(renderer, scene)
+  ocean.mesh.visible = true
+  ocean.sand.visible = true
+}
 
 // 포스트프로세싱: bloom(데스크톱) + 비네트 + ACES 톤매핑
 const composer = createComposer(renderer, scene, camera, isMobile)
@@ -103,6 +119,9 @@ function applyEnvironment(t: number): void {
   sandColor.copy(sandBase).lerp(palette.fogColor, 0.35)
   sandColor.multiplyScalar(1 - 0.75 * palette.nightFactor)
   ;(ocean.sand.material as THREE.MeshBasicMaterial).color.copy(sandColor)
+
+  // 바뀐 하늘을 반사 큐브맵에 반영
+  updateEnvMap()
 }
 
 applyEnvironment(state.time)

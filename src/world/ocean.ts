@@ -2,6 +2,7 @@
 import * as THREE from 'three'
 import oceanVert from '../shaders/ocean.vert.glsl?raw'
 import oceanFrag from '../shaders/ocean.frag.glsl?raw'
+import { generateWaterNormalMap } from './waterNormalMap'
 
 /** 해안선의 월드 z 좌표 — 카메라(z=120) 뒤쪽에 물가가 있다 */
 export const SHORE_Z = 150
@@ -11,8 +12,10 @@ export class Ocean {
   readonly sand: THREE.Mesh
   readonly uniforms: Record<string, THREE.IUniform>
 
-  constructor(isMobile: boolean) {
+  constructor(isMobile: boolean, anisotropy: number) {
     this.uniforms = {
+      uNormalMap: { value: generateWaterNormalMap(256, anisotropy) },
+      uEnvMap: { value: null }, // main에서 CubeCamera 렌더 타깃 연결
       uTime: { value: 0 },
       uWaveIntensity: { value: 1.0 },
       uShoreZ: { value: SHORE_Z },

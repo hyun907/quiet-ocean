@@ -15,6 +15,8 @@ uniform float uFogNear;
 uniform float uFogFar;
 uniform float uNightFactor;   // 0 낮 ~ 1 밤
 uniform float uShoreZ;
+uniform sampler2D uNormalMap; // 절차 생성된 타일링 잔물결 노멀맵
+uniform samplerCube uEnvMap;  // 하늘을 담은 환경 큐브맵 (실제 반사용)
 
 varying vec3 vWorldPos;
 varying vec3 vNormal;
@@ -50,12 +52,16 @@ void main() {
   float distToCam = length(toCam);
   vec3 viewDir = toCam / distToCam;
 
-  // 작은 잔물결 — 노이즈로 법선을 미세하게 교란 (먼 거리에선 약화해 알리아싱 방지)
-  float rippleAtten = 1.0 - smoothstep(40.0, 300.0, distToCam);
-  vec2 rp = vWorldPos.xz * 0.55 + vec2(uTime * 0.35, uTime * 0.22);
-  float r1 = noise(rp) - 0.5;
-  float r2 = noise(rp.yx * 1.7 - uTime * 0.3) - 0.5;
-  vec3 normal = normalize(vNormal + vec3(r1, 0.0, r2) * 0.22 * rippleAtten);
+  // 잔물결 — 타일링 노멀맵 두 장을 다른 배율/방향/속도로 스크롤해 합성
+  // (밉맵·이방성 필터링이 알리아싱을 처리하므로 멀리서도 깨끗하다)
+  vec2 uv1 = vWorldPos.xz * 0.055 + vec2(uTime * 0.013, uTime * 0.009);
+  vec2 uv2 = vWorldPos.xz * 0.16 + vec2(-uTime * 0.020, uTime * 0.014);
+  vec3 n1 = texture2D(uNormalMap, uv1).xyz * 2.0 - 1.0;
+  vec3 n2 = texture2D(uNormalMap, uv2).xyz * 2.0 - 1.0;
+  vec2 detail = n1.xy + n2.xy * 0.75;
+  // 수평선 근처는 디테일을 줄여 차분하게
+  float detailStrength = 0.5 * (1.0 - 0.7 * smoothstep(60.0, 520.0, distToCam));
+  vec3 normal = normalize(vNormal + vec3(detail.x, 0.0, detail.y) * detailStrength);
 
   // 해안 근접도 (0 먼바다 → 1 물가)
   float shore = smoothstep(uShoreZ - 80.0, uShoreZ, vWorldPos.z);
@@ -66,13 +72,16 @@ void main() {
   // Fresnel — 시선이 수면에 누울수록 하늘 반사가 강해진다
   float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 5.0);
   vec3 reflDir = reflect(-viewDir, normal);
-  vec3 skyRefl = mix(uHorizonColor, uZenithColor, clamp(reflDir.y * 1.8, 0.0, 1.0));
+  reflDir.y = abs(reflDir.y); // 수면 아래로 향한 반사는 위로 접어 하늘을 보게
+  // 실제 하늘(태양 글로우·그라데이션·달)이 담긴 큐브맵을 샘플링
+  vec3 skyRefl = textureCube(uEnvMap, reflDir).rgb;
   vec3 color = mix(base, skyRefl, clamp(0.06 + 0.9 * fresnel, 0.0, 1.0));
 
   // 태양/달 반사 — 좁은 하이라이트 + 수면에 길게 깔리는 넓은 글리터 경로
+  // (넓은 글로우는 큐브맵 반사가 이미 담당하므로 약하게)
   float rdots = max(dot(reflDir, uSunDir), 0.0);
   float specNarrow = pow(rdots, 260.0) * 2.6;
-  float specWide   = pow(rdots, 24.0) * 0.16;
+  float specWide   = pow(rdots, 24.0) * 0.08;
   vec3 spec = uSunColor * (specNarrow + specWide) * uSunIntensity;
 
   // 은은한 반짝임 — 시간에 따라 점멸하는 미세 글린트
