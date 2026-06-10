@@ -6,6 +6,7 @@ import { createCamera } from './core/camera'
 import { LookControls } from './core/controls'
 import { Ocean } from './world/ocean'
 import { Sky } from './world/sky'
+import { Stars } from './world/stars'
 import { createLighting } from './world/lighting'
 import {
   createPalette,
@@ -32,6 +33,9 @@ sky.addTo(scene)
 
 const ocean = new Ocean(isMobile)
 ocean.addTo(scene)
+
+const stars = new Stars(isMobile)
+stars.addTo(scene)
 
 const lighting = createLighting(scene)
 
@@ -115,6 +119,7 @@ renderer.setAnimationLoop(() => {
 
   controls.update(dt)
   ocean.update(elapsed)
+  stars.update(elapsed, palette.nightFactor)
 
   renderer.render(scene, camera)
 })
