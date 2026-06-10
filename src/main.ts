@@ -15,6 +15,7 @@ import {
   MOON_DIR,
 } from './time/timeOfDay'
 import { createPanel } from './ui/panel'
+import { OceanAudio } from './audio/oceanAudio'
 
 // 모바일(터치 기기) 감지 — 셰이더 격자/픽셀비율 품질을 낮춘다
 const isMobile = window.matchMedia('(pointer: coarse)').matches
@@ -43,7 +44,11 @@ const lighting = createLighting(scene)
 const state = {
   time: 0.72, // 시작은 노을 직전 — 첫인상이 가장 좋은 시간대
   waveIntensity: 1.0,
+  autoTime: false,
 }
+
+/** 자동 흐름일 때 하루가 한 바퀴 도는 시간 (초) */
+const DAY_CYCLE_SECONDS = 240
 
 // ---- 시간대 팔레트 적용 ----
 const palette = createPalette()
@@ -96,10 +101,15 @@ function applyEnvironment(t: number): void {
 
 applyEnvironment(state.time)
 
+// ---- 오디오 ----
+const audio = new OceanAudio()
+
 // ---- UI ----
-createPanel({
+const panel = createPanel({
   initialTime: state.time,
   initialWave: state.waveIntensity,
+  initialSound: true,
+  initialAuto: state.autoTime,
   onTimeChange: (t) => {
     state.time = t
     applyEnvironment(t)
@@ -108,7 +118,24 @@ createPanel({
     state.waveIntensity = v
     ocean.setWaveIntensity(v)
   },
+  onSoundToggle: (on) => audio.setEnabled(on),
+  onAutoToggle: (on) => (state.autoTime = on),
 })
+
+// 첫 안내 문구 — 첫 클릭에 사라지면서 오디오를 잠금 해제한다
+const hint = document.createElement('div')
+hint.className = 'hint'
+hint.textContent = '드래그로 주변을 둘러보세요 · 화면을 클릭하면 파도 소리가 시작됩니다'
+document.body.appendChild(hint)
+
+window.addEventListener(
+  'pointerdown',
+  () => {
+    audio.unlock() // 자동재생 정책: 사용자 제스처 이후에만 재생 가능
+    hint.classList.add('hidden')
+  },
+  { once: true },
+)
 
 // ---- 렌더 루프 ----
 const clock = new THREE.Clock()
@@ -116,6 +143,13 @@ const clock = new THREE.Clock()
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.1) // 탭 복귀 시 점프 방지
   const elapsed = clock.elapsedTime
+
+  // 자동 시간 흐름 — 슬라이더도 함께 따라간다
+  if (state.autoTime) {
+    state.time = (state.time + dt / DAY_CYCLE_SECONDS) % 1
+    applyEnvironment(state.time)
+    panel.setTime(state.time)
+  }
 
   controls.update(dt)
   ocean.update(elapsed)

@@ -4,8 +4,12 @@ import { timeLabel } from '../time/timeOfDay'
 export interface PanelOptions {
   initialTime: number
   initialWave: number
+  initialSound: boolean
+  initialAuto: boolean
   onTimeChange: (t: number) => void
   onWaveChange: (v: number) => void
+  onSoundToggle: (on: boolean) => void
+  onAutoToggle: (on: boolean) => void
 }
 
 export interface PanelApi {
@@ -25,6 +29,11 @@ export function createPanel(opts: PanelOptions): PanelApi {
 
     <label>파도 세기 <span class="value" data-wave-label></span></label>
     <input type="range" data-wave min="0" max="2" step="0.01" />
+
+    <div class="row">
+      <button type="button" data-sound></button>
+      <button type="button" data-auto></button>
+    </div>
   `
   document.body.appendChild(panel)
 
@@ -50,6 +59,35 @@ export function createPanel(opts: PanelOptions): PanelApi {
     const v = parseFloat(waveInput.value)
     syncWaveLabel(v)
     opts.onWaveChange(v)
+  })
+
+  // ---- 토글 버튼 (소리 / 자동 시간 흐름) ----
+  const soundBtn = panel.querySelector<HTMLButtonElement>('[data-sound]')!
+  const autoBtn = panel.querySelector<HTMLButtonElement>('[data-auto]')!
+
+  let soundOn = opts.initialSound
+  let autoOn = opts.initialAuto
+
+  const syncSound = () => {
+    soundBtn.textContent = soundOn ? '🔊 소리 켜짐' : '🔇 소리 꺼짐'
+    soundBtn.classList.toggle('on', soundOn)
+  }
+  const syncAuto = () => {
+    autoBtn.textContent = autoOn ? '🌗 자동 흐름' : '⏸ 시간 고정'
+    autoBtn.classList.toggle('on', autoOn)
+  }
+  syncSound()
+  syncAuto()
+
+  soundBtn.addEventListener('click', () => {
+    soundOn = !soundOn
+    syncSound()
+    opts.onSoundToggle(soundOn)
+  })
+  autoBtn.addEventListener('click', () => {
+    autoOn = !autoOn
+    syncAuto()
+    opts.onAutoToggle(autoOn)
   })
 
   return {
