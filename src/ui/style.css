@@ -1,0 +1,178 @@
+/* Quiet Ocean — 글래스모피즘 UI */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a1624;
+  font-family:
+    'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+    'Segoe UI', Roboto, sans-serif;
+}
+
+#scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none; /* 터치 드래그가 스크롤로 빠지지 않도록 */
+}
+#scene:active {
+  cursor: grabbing;
+}
+
+/* ---- 컨트롤 패널 (오른쪽 아래, 반투명 유리) ---- */
+.panel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 248px;
+  padding: 18px 20px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.88);
+  user-select: none;
+  z-index: 10;
+}
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  opacity: 0.75;
+  margin-bottom: 14px;
+}
+
+.panel label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  opacity: 0.85;
+  margin-bottom: 6px;
+}
+
+.panel label .value {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* ---- 슬라이더 ---- */
+.panel input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.18);
+  outline: none;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+
+/* 시간 슬라이더 트랙: 하루의 색을 그라데이션으로 */
+.panel input[type='range'].time-slider {
+  background: linear-gradient(
+    to right,
+    #5b6b96 0%,    /* 새벽 */
+    #cfe2ec 25%,   /* 아침 */
+    #7db4e8 50%,   /* 낮 */
+    #ff8e5a 75%,   /* 노을 */
+    #16243d 94%,   /* 밤 */
+    #5b6b96 100%
+  );
+}
+
+.panel input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+.panel input[type='range']::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* 슬라이더 아래 시간대 눈금 라벨 */
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  opacity: 0.55;
+  margin-bottom: 14px;
+}
+
+/* ---- 토글 버튼 ---- */
+.panel .row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.panel button {
+  flex: 1;
+  padding: 8px 0;
+  font-size: 12px;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.panel button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.panel button.on {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* ---- 처음에 보이는 안내 문구 ---- */
+.hint {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  transform: translateX(-50%);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  transition: opacity 1.2s ease;
+  z-index: 10;
+}
+.hint.hidden {
+  opacity: 0;
+}
+
+/* 모바일: 패널을 화면 폭에 맞춰 줄임 */
+@media (max-width: 480px) {
+  .panel {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+  }
+}

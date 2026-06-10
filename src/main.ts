@@ -1,11 +1,19 @@
 // 진입점 — 모든 모듈을 조립하고 렌더 루프를 돌린다
 import * as THREE from 'three'
+import './ui/style.css'
 import { createRenderer } from './core/renderer'
 import { createCamera } from './core/camera'
 import { LookControls } from './core/controls'
 import { Ocean } from './world/ocean'
 import { Sky } from './world/sky'
 import { createLighting } from './world/lighting'
+import {
+  createPalette,
+  samplePalette,
+  getSunDirection,
+  MOON_DIR,
+} from './time/timeOfDay'
+import { createPanel } from './ui/panel'
 
 // 모바일(터치 기기) 감지 — 셰이더 격자/픽셀비율 품질을 낮춘다
 const isMobile = window.matchMedia('(pointer: coarse)').matches
@@ -16,7 +24,8 @@ const camera = createCamera()
 const controls = new LookControls(camera, canvas)
 
 const scene = new THREE.Scene()
-scene.fog = new THREE.Fog(0xbcd8ec, 80, 650) // 모래 평면 등 표준 머티리얼용 안개
+const fog = new THREE.Fog(0xbcd8ec, 80, 650) // 모래 평면 등 표준 머티리얼용 안개
+scene.fog = fog
 
 const sky = new Sky()
 sky.addTo(scene)
@@ -24,7 +33,78 @@ sky.addTo(scene)
 const ocean = new Ocean(isMobile)
 ocean.addTo(scene)
 
-createLighting(scene)
+const lighting = createLighting(scene)
+
+// ---- 상태 ----
+const state = {
+  time: 0.72, // 시작은 노을 직전 — 첫인상이 가장 좋은 시간대
+  waveIntensity: 1.0,
+}
+
+// ---- 시간대 팔레트 적용 ----
+const palette = createPalette()
+const sunDir = new THREE.Vector3()
+const lightDir = new THREE.Vector3()
+const sandBase = new THREE.Color(0x71604c)
+const sandColor = new THREE.Color()
+
+function applyEnvironment(t: number): void {
+  samplePalette(t, palette)
+
+  // 태양 방향 — 하늘에는 실제 태양을, 수면 반사에는 밤이 되면 달을 쓴다
+  getSunDirection(palette, sunDir)
+  lightDir.lerpVectors(sunDir, MOON_DIR, palette.nightFactor).normalize()
+
+  // 바다
+  const ou = ocean.uniforms
+  ;(ou.uSunDir.value as THREE.Vector3).copy(lightDir)
+  ;(ou.uSunColor.value as THREE.Color).copy(palette.sunColor)
+  ou.uSunIntensity.value = palette.sunIntensity
+  ;(ou.uDeepColor.value as THREE.Color).copy(palette.seaDeep)
+  ;(ou.uShallowColor.value as THREE.Color).copy(palette.seaShallow)
+  ;(ou.uZenithColor.value as THREE.Color).copy(palette.skyZenith)
+  ;(ou.uHorizonColor.value as THREE.Color).copy(palette.skyHorizon)
+  ;(ou.uFogColor.value as THREE.Color).copy(palette.fogColor)
+  ou.uNightFactor.value = palette.nightFactor
+
+  // 하늘
+  const su = sky.uniforms
+  ;(su.uZenithColor.value as THREE.Color).copy(palette.skyZenith)
+  ;(su.uHorizonColor.value as THREE.Color).copy(palette.skyHorizon)
+  ;(su.uSunDir.value as THREE.Vector3).copy(sunDir)
+  ;(su.uSunColor.value as THREE.Color).copy(palette.sunColor)
+  ;(su.uMoonDir.value as THREE.Vector3).copy(MOON_DIR)
+  su.uNightFactor.value = palette.nightFactor
+
+  // 안개 / 조명 / 노출
+  fog.color.copy(palette.fogColor)
+  lighting.sun.color.copy(palette.sunColor)
+  lighting.sun.intensity = Math.max(palette.sunIntensity, 0.15)
+  lighting.sun.position.copy(lightDir).multiplyScalar(200)
+  lighting.hemi.color.copy(palette.skyHorizon)
+  renderer.toneMappingExposure = palette.exposure
+
+  // 젖은 모래: 안개색이 섞이고 밤에는 어두워진다
+  sandColor.copy(sandBase).lerp(palette.fogColor, 0.35)
+  sandColor.multiplyScalar(1 - 0.75 * palette.nightFactor)
+  ;(ocean.sand.material as THREE.MeshBasicMaterial).color.copy(sandColor)
+}
+
+applyEnvironment(state.time)
+
+// ---- UI ----
+createPanel({
+  initialTime: state.time,
+  initialWave: state.waveIntensity,
+  onTimeChange: (t) => {
+    state.time = t
+    applyEnvironment(t)
+  },
+  onWaveChange: (v) => {
+    state.waveIntensity = v
+    ocean.setWaveIntensity(v)
+  },
+})
 
 // ---- 렌더 루프 ----
 const clock = new THREE.Clock()
