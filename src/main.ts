@@ -12,6 +12,7 @@ import {
   createPalette,
   samplePalette,
   getSunDirection,
+  timeFromClock,
   MOON_DIR,
 } from './time/timeOfDay'
 import { createPanel } from './ui/panel'
@@ -46,9 +47,10 @@ const composer = createComposer(renderer, scene, camera, isMobile)
 
 // ---- 상태 ----
 const state = {
-  time: 0.72, // 시작은 노을 직전 — 첫인상이 가장 좋은 시간대
+  time: timeFromClock(), // 접속한 실제 한국 시각에 맞는 시간대로 시작
   waveIntensity: 1.0,
   autoTime: false,
+  followClock: true, // 슬라이더를 만지기 전까지는 실제 시각을 따라간다
 }
 
 /** 자동 흐름일 때 하루가 한 바퀴 도는 시간 (초) */
@@ -115,6 +117,7 @@ const panel = createPanel({
   initialSound: true,
   initialAuto: state.autoTime,
   onTimeChange: (t) => {
+    state.followClock = false // 사용자가 직접 시간을 고르면 실시간 추적 해제
     state.time = t
     applyEnvironment(t)
   },
@@ -123,8 +126,19 @@ const panel = createPanel({
     ocean.setWaveIntensity(v)
   },
   onSoundToggle: (on) => audio.setEnabled(on),
-  onAutoToggle: (on) => (state.autoTime = on),
+  onAutoToggle: (on) => {
+    state.autoTime = on
+    if (on) state.followClock = false // 빠른 자동 순환이 실시간 추적보다 우선
+  },
 })
+
+// 실시간 추적: 30초마다 실제 한국 시각에 맞춰 장면 시간을 갱신
+window.setInterval(() => {
+  if (!state.followClock || state.autoTime) return
+  state.time = timeFromClock()
+  applyEnvironment(state.time)
+  panel.setTime(state.time)
+}, 30_000)
 
 // 첫 안내 문구 — 첫 클릭에 사라지면서 오디오를 잠금 해제한다
 const hint = document.createElement('div')

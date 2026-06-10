@@ -157,6 +157,40 @@ export function getSunDirection(palette: Palette, out: THREE.Vector3): THREE.Vec
   return out.copy(dir)
 }
 
+// ---- 실제 시각(한국 기준) → 장면 시간 t 매핑 ----
+// 시계 시각(시 단위)과 장면 t의 대응점. 새벽 5시 = t 0, 낮 1시 = t 0.5 …
+// 마지막 앵커(29시 = 다음날 5시)로 하루가 순환한다.
+const CLOCK_ANCHORS: { hour: number; t: number }[] = [
+  { hour: 5, t: 0 },     // 새벽
+  { hour: 9, t: 0.25 },  // 아침
+  { hour: 13, t: 0.5 },  // 낮
+  { hour: 19, t: 0.75 }, // 노을
+  { hour: 22.5, t: 0.92 }, // 밤
+  { hour: 29, t: 1 },    // 다음날 새벽으로 순환
+]
+
+/** 현재 한국 시각(KST, UTC+9 고정 — 서머타임 없음)을 0~24 시 단위로 반환 */
+function kstHourOfDay(date: Date): number {
+  const kst = new Date(date.getTime() + 9 * 3600 * 1000)
+  return kst.getUTCHours() + kst.getUTCMinutes() / 60 + kst.getUTCSeconds() / 3600
+}
+
+/** 실제 한국 시각에 해당하는 장면 시간 t ∈ [0,1) 를 반환 */
+export function timeFromClock(date: Date = new Date()): number {
+  let h = kstHourOfDay(date)
+  if (h < CLOCK_ANCHORS[0].hour) h += 24 // 0~5시는 전날 밤의 연장으로 취급
+
+  for (let i = 0; i < CLOCK_ANCHORS.length - 1; i++) {
+    const a = CLOCK_ANCHORS[i]
+    const b = CLOCK_ANCHORS[i + 1]
+    if (h >= a.hour && h <= b.hour) {
+      const u = (h - a.hour) / (b.hour - a.hour)
+      return (a.t + (b.t - a.t) * u) % 1
+    }
+  }
+  return 0
+}
+
 /** UI 표시용 시간대 이름 */
 export function timeLabel(t: number): string {
   t = ((t % 1) + 1) % 1
